@@ -1,0 +1,12 @@
+# Logs
+logs
+*.log
+
+.DS_Store
+.idea/
+*.local
+*.log
+dist
+
+# Rust build artifacts
+target/
