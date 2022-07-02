@@ -1,0 +1,14 @@
+[package]
+name   	= "futures_signals_learning"
+version	= "0.1.0"
+edition	= "2021"
+
+[dependencies] # more keys&definitions @ doc.rust-lang.org/cargo/reference/manifest.html
+futures-signals	= "0.3.28"
+futures        	= { version="0.3.21", features=["thread-pool"] }
+
+[profile.release]
+panic        	= 'abort'	# Do not perform backtrace for panic on release builds
+codegen-units	= 1      	# Perform optimizations on all codegen units
+opt-level    	= 'z'    	# Optimize for size 's' or 'z' "aggressively"
+lto          	= true   	# Enable link time optimization
