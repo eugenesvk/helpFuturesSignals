@@ -10,7 +10,9 @@
 mod p1; // Mutable
 
 fn main() {
-  p1::mutable();
-  p1::async_example();
-  p1::for_each();
+  // p1::mutable();
+  // p1::async_example();
+  // p1::for_each();
+  p1::mutable_observe();
+  p1::mutable_observe2();
 }

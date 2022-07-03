@@ -81,7 +81,76 @@ pub fn for_each() { // 2. for_each. Mutable vs RwLock: possible to be efficientl
     // async fn main() { future.await;}
 }
 
+pub fn mutable_observe() { // example of how to actually run the code so the callbacks get called
+  // use futures_signals::signal::Mutable;
+  // use futures_signals::signal::SignalExt; //for Iterator trait (gives for_each)
+  use futures::executor::LocalPool;
+  use std::thread;
+  use futures::join;
 
+    //create my_state, and a clone that will be moved to the thread
+  let my_state       	= Mutable::new(5);
+  let my_state_shared	= my_state.clone();
+
+  thread::spawn(move || { // increment my_state by 1 in a loop, until it reaches 10
+    loop {
+      my_state_shared.set(my_state_shared.get() + 1);
+      thread::sleep(std::time::Duration::from_secs(1));
+      if my_state_shared.get() == 10 {
+        break;
+      }
+    } //my_state_shared dropped here
+  });
+
+  //create observers
+  let obs_a_future = my_state.signal().for_each(|val| { println!("Observer A {}", val); async{} });
+  let obs_b_future = my_state.signal().for_each(|val| { println!("Observer B {}", val); async{} });
+
+  drop(my_state); // decrement ref count by one (my_state_shared is still active)
+
+  let mut pool = LocalPool::new(); // run the app until my_state_shared is dropped.
+  pool.run_until( async { join!(obs_a_future, obs_b_future); });
+  println!("finished!");
+  // all references to the mutable had to be dropped before the future it created is marked as complete
+  // As long as you have a reference to the Mutable, it's possible to change the value, and so the receiver has to assume that more changes might happen
+  // What if you don't want to wait for the Mutable to drop? What if you want to stop listening earlier? In that case you can cancel the Future by using abortable
+    // spawner.spawn_local(async move { abort_future.await;});
+    // abort_handle.abort(); // stop the Future even if the Mutable still exists
+  // use futures::future::abortable;
+  // let future2 = my_state.signal().for_each(|v| { println!("@f2 v={}", v); async {} });
+  // let (abort_future, abort_handle) = abortable(future2);
+}
+pub fn mutable_observe2() { // example of how to actually run the code so the callbacks get called
+  use std::thread::sleep;
+  use std::time;
+
+  // Timeout
+    // will run the some_signal.for_each(...) Future and the sleep(2000.0) Future in parallel
+    // After 1 second, the sleep Future will finish, and then it will cancel the for_each Future
+    // like abortable, this works on any Future, so every Future in Rust supports timeouts. Various crates like async-std have a timeout function which behaves just like the select code
+  let my_state	= Mutable::new(11);
+  let future_t1 = my_state.signal().for_each(|v| { println!("@future_t1 v={}", v); async {} });
+  // let future_t1 = async { futures::future::pending::<()>().await; "ret <>" }; // never finish
+  // let future_t2 = async { futures::future::ready(22).await }; // finished right away
+  // let future_t2 = async { sleep(time::Duration::from_millis(2000)); "ret after 2000ms" }; // finished after 2sec
+  let future_t2 = async { sleep(time::Duration::from_millis(2000)); () }; // make compat with signal
+  // let mut future_t1b = Box::pin(future_t1);
+  // let mut future_t2b = Box::pin(future_t2);
+  futures::pin_mut!(future_t1);
+  futures::pin_mut!(future_t2);
+  let future_timeout = futures::future::select(future_t1, future_t2);
+  use futures::{pin_mut, future::Either, future::self};
+  let future = async { let value = match future_timeout.await {
+      Either::Left( (val1,_)) => val1, // `val1` resolved from `fut1`; `_` represents `fut2`
+      Either::Right((val2,_)) => val2, // `val2` resolved from `fut2`; `_` represents `fut1`
+    };
+    // println!("   ×××@future_timeout match: {}", &value);
+  };
+  // use futures::executor::ThreadPool;
+  // let pool1 = ThreadPool::new().unwrap();
+  // pool1.spawn_ok(async move { future.await;}); // pin_mut!(future_t1) borrowed value does not live long enough; but Box::pin(future_t1); works
+  futures::executor::block_on(async move { future.await;});
+}
 
 async fn print_async() { println!("Hello from print_async") }
   // async fn foo(args..) -> T is a function of the type fn(args..) -> impl Future<Output = T>
