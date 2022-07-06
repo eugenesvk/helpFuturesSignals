@@ -27,6 +27,8 @@ pub fn for_each() { // 2. for_each. Mutable vs RwLock: possible to be efficientl
   let my_state = Mutable::new(5);
 
   // lock for some reason doesn't let the further block_on even run
+  // using block_on doesn't really work with Signals, because for_each will keep waiting forever (until the Mutable is dropped) (discord.com/channels/716581000800632853/716581000800632856/852292741915475989)
+    // resolves? block_on(value.first().to_future())
   // let mut lock = my_state.lock_mut();
   // *lock = 10; // Changes the current value of my_state to 10
 
